@@ -134,14 +134,14 @@ namespace MongoDbContext
             return await filtro.FirstOrDefaultAsync();
         }
 
-        public ICollection<T> ObterItems<T>(Expression<Func<T, bool>> where, bool excluirId = true,
+        public ICollection<T> ObterItens<T>(Expression<Func<T, bool>> where, bool excluirId = true,
             params string[] projections)
         {
             var item = Filtrar(where, excluirId, projections).ToList();
             return item;
         }
 
-        public async Task<IList<T>> ObterItemsPorObjectAsync<T>(object where, bool excluirId = true,
+        public async Task<IList<T>> ObterItensPorObjectAsync<T>(object where, bool excluirId = true,
             params string[] projections)
         {
             var filtros = AddFilter<T>(where);
@@ -153,7 +153,7 @@ namespace MongoDbContext
             return await itens.ToListAsync();
         }
 
-        public async Task<ICollection<T>> ObterItemsPorObjectAsync<T>(object where, bool excluirId = true,
+        public async Task<ICollection<T>> ObterItensPorObjectAsync<T>(object where, bool excluirId = true,
             params Expression<Func<T, Object>>[] projections)
         {
             var filtros = AddFilter<T>(where);
@@ -165,21 +165,21 @@ namespace MongoDbContext
             return await itens.ToListAsync();
         }
 
-        public async Task<ICollection<T>> ObterItemsAsync<T>(object where, int skip = 1, int limit = 10,
+        public async Task<ICollection<T>> ObterItensAsync<T>(object where, int skip = 1, int limit = 10,
             string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
         {
             var item = Filtrar<T>(where, skip, limit, order, asc, excluirId, projections);
             return await item.ToListAsync();
         }
 
-        public async Task<ICollection<T>> ObterItemsAsync<T>(Expression<Func<T, bool>> where, bool excluirId = true,
+        public async Task<ICollection<T>> ObterItensAsync<T>(Expression<Func<T, bool>> where, bool excluirId = true,
             params string[] projections)
         {
             var item = await Filtrar(where, excluirId, projections).ToListAsync();
             return item;
         }
 
-        public async Task<ICollection<T>> ObterItemsAsync<T>(FilterDefinition<T> where, int skip = 1, int limit = 10,
+        public async Task<ICollection<T>> ObterItensAsync<T>(FilterDefinition<T> where, int skip = 1, int limit = 10,
             string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
         {
             var item = await Filtrar(where, excluirId, projections).ToListAsync();
@@ -245,7 +245,7 @@ namespace MongoDbContext
             return Filtrar(filter, excluirId, projections).ToList();
         }
 
-        public async Task<ICollection<T>> ObterItemsPorFilterDefinitionAsync<T>(FilterDefinition<T> where, int skip = 1, int limit = 10,
+        public async Task<ICollection<T>> ObterItensPorFilterDefinitionAsync<T>(FilterDefinition<T> where, int skip = 1, int limit = 10,
           string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
         {
             var projection = ObterProjection<T>(excluirId, projections);
