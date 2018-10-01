@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -361,6 +362,11 @@ namespace MongoDbContext
         public async Task<long> ObterTotalDocumentosAsync<T>(FilterDefinition<T> where)
         {
             return await ObterColecao<T>().CountDocumentsAsync(where);
+        }
+
+        public async Task<fieldType> ObterMaiorValorAsync<T, fieldType>(Expression<Func<T, bool>> where, Expression<Func<T, fieldType>> max)
+        {
+            return await ObterColecao<T>().AsQueryable().Where(where).MaxAsync(max);
         }
     }
 }
