@@ -244,7 +244,7 @@ namespace MongoDbContext
             return Filtrar(filter, excluirId, projections).ToList();
         }
 
-        public async Task<ICollection<T>> ObterItensPorFilterDefinition<T>(FilterDefinition<T> where, int skip = 1, int limit = 10,
+        public async Task<ICollection<T>> ObterItemsPorFilterDefinitionAsync<T>(FilterDefinition<T> where, int skip = 1, int limit = 10,
           string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
         {
             var projection = ObterProjection<T>(excluirId, projections);
