@@ -1,47 +1,104 @@
-﻿using MongoDB.Bson;
-using MongoDB.Driver;
-using MongoDB.Driver.Linq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Threading.Tasks;
-
-namespace MongoDbContext
+﻿namespace MongoDbContext
 {
+    using MongoDB.Bson;
+    using MongoDB.Driver;
+    using MongoDB.Driver.Linq;
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Linq.Expressions;
+    using System.Reflection;
+    using System.Threading.Tasks;
+
     public class MongoDbContext
     {
-        private readonly Lazy<MongoClient> _lazy = new Lazy<MongoClient>(() =>
+        private readonly IMongoDatabase _db;
+        private readonly string nomeBanco;
+        private readonly string connectionString;
+
+        public MongoDbContext(string connectionString, string nomeBanco)
+        {
+            if (string.IsNullOrWhiteSpace(nomeBanco) || string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("ConnectionString não informada ou nome do banco de dados não informado");
+            }
+
+
+            _db = IniciarBancoComRetry(connectionString, nomeBanco);
+
+            if (_db == null)
+            {
+                throw new Exception("Não foi possível conectar no mongodb");
+            }
+
+            this.nomeBanco = nomeBanco;
+            this.connectionString = connectionString;
+        }
+
+        private IMongoDatabase IniciarBancoComRetry(string connectionString, string nomeBanco, int tentativas = 2)
+        {
+            tentativas--;
+
+            if (tentativas == -1)
+            {
+                return null;
+            }
+
+            try
+            {
+                var db = IniciarInstancia(connectionString).GetDatabase(nomeBanco);
+                if (db.Ping() && db.Client.Cluster.Description.State == MongoDB.Driver.Core.Clusters.ClusterState.Connected)
+                    return db;
+
+                return IniciarBancoComRetry(connectionString, nomeBanco, tentativas);
+
+            }
+            catch (Exception)
+            {
+                if (tentativas > -1)
+                    return IniciarBancoComRetry(connectionString, nomeBanco, tentativas);
+
+                throw;
+            }
+        }
+
+        private MongoClient IniciarInstancia(string connectionString)
         {
             ConventionPackMongo.UseConventionMongo();
-            return new MongoClient(MongoDbConfiguracao.ConnectionString);
-        });
+            MongoDefaults.MaxConnectionIdleTime = TimeSpan.FromMinutes(1);
+            return new MongoClient(connectionString);
+            //var cliente= new MongoClient(new MongoClientSettings
+            //{
+            //    Server = new MongoServerAddress(connectionString),
 
-        private readonly IMongoDatabase _db;
-
-        public MongoClient Instance => _lazy.Value;
-        public MongoDbContext(string nomeBanco = "")
+            //    MaxConnectionIdleTime = TimeSpan.FromMinutes(1),
+            //    ClusterConfigurator = builder =>
+            //    {
+            //        builder.Subscribe<ConnectionFailedEvent>(CmdStartHandlerForFindCommand);
+            //    },
+            //    RetryWrites = true,
+            //});
+        }
+        private void CmdStartHandlerForFindCommand(MongoDB.Driver.Core.Events.ConnectionFailedEvent cmdStart)
         {
-            if (string.IsNullOrWhiteSpace(nomeBanco) && string.IsNullOrWhiteSpace(MongoDbConfiguracao.NomeBanco))
-            {
-                throw new InvalidOperationException("Nome do banco de dados não informado");
-            }
-
-            if (!string.IsNullOrWhiteSpace(nomeBanco))
-            {
-                _db = Instance.GetDatabase(nomeBanco);
-            }
-            else
-            {
-                _db = Instance.GetDatabase(MongoDbConfiguracao.NomeBanco);
-            }
+            System.Diagnostics.Trace.TraceWarning("Erro ao tentar connectar no mongodb: {0}", cmdStart.Exception);
         }
 
         public IMongoCollection<T> ObterColecao<T>()
         {
+            //VerificaMongoDbInicializado();
             return _db.GetCollection<T>(ObterNomeColection<T>());
         }
+
+        //private void VerificaMongoDbInicializado()
+        //{
+        //    if (_db == null || !_db.Ping() || _db.Client.Cluster.Description.State == MongoDB.Driver.Core.Clusters.ClusterState.Disconnected)
+        //        _db = IniciarBancoComRetry(nomeBanco, connectionString, 2);
+
+        //    if (_db == null)
+        //        throw new Exception("Não foi possível conectar no mongodb");
+        //}
+
         private string ObterNomeColection<T>()
         {
             var nomeColection = typeof(T).Name;
@@ -50,7 +107,7 @@ namespace MongoDbContext
 
         private string ToLowerInitLeter(string valor)
         {
-            return $"{Char.ToLowerInvariant(valor[0])}{valor.Substring(1)}";
+            return $"{char.ToLowerInvariant(valor[0])}{valor.Substring(1)}";
         }
 
         public async Task InserirAsync<T>(T item)

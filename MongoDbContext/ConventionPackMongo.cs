@@ -1,10 +1,9 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization;
-using MongoDB.Bson.Serialization.Conventions;
-using MongoDB.Bson.Serialization.IdGenerators;
-
-namespace MongoDbContext
+﻿namespace MongoDbContext
 {
+    using MongoDB.Bson;
+    using MongoDB.Bson.Serialization;
+    using MongoDB.Bson.Serialization.Conventions;
+    using MongoDB.Bson.Serialization.IdGenerators;
     public class ConventionPackMongo
     {
         public class IdGeneratorConvention : ConventionBase, IPostProcessingConvention
