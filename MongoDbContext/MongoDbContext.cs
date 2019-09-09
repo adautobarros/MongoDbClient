@@ -84,20 +84,15 @@
             System.Diagnostics.Trace.TraceWarning("Erro ao tentar connectar no mongodb: {0}", cmdStart.Exception);
         }
 
-        public IMongoCollection<T> ObterColecao<T>()
+        public bool Connectado()
         {
-            //VerificaMongoDbInicializado();
-            return _db.GetCollection<T>(ObterNomeColection<T>());
+            return _db.Ping() && _db.Client.Cluster.Description.State == MongoDB.Driver.Core.Clusters.ClusterState.Connected;
         }
 
-        //private void VerificaMongoDbInicializado()
-        //{
-        //    if (_db == null || !_db.Ping() || _db.Client.Cluster.Description.State == MongoDB.Driver.Core.Clusters.ClusterState.Disconnected)
-        //        _db = IniciarBancoComRetry(nomeBanco, connectionString, 2);
-
-        //    if (_db == null)
-        //        throw new Exception("Não foi possível conectar no mongodb");
-        //}
+        public IMongoCollection<T> ObterColecao<T>()
+        {
+            return _db.GetCollection<T>(ObterNomeColection<T>());
+        }
 
         private string ObterNomeColection<T>()
         {
@@ -241,6 +236,18 @@
         {
             var item = await Filtrar(where, excluirId, projections).ToListAsync();
             return item;
+        }
+
+        public async Task<ICollection<T>> ObterItensPorFilterDefinition<T>(FilterDefinition<T> where, string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
+        {
+            var filtros = AddFilter<T>(where);
+            var projection = ObterProjection<T>(excluirId, projections);
+
+            var itens = ObterColecao<T>()
+                .Find(filtros)
+                .Sort(new BsonDocument(order, asc ? 1 : -1))
+                .Project<T>(projection);
+            return await itens.ToListAsync();
         }
 
         private IFindFluent<T, T> Filtrar<T>(Expression<Func<T, bool>> where, bool excluirId, string[] projections)
@@ -421,9 +428,43 @@
             return await ObterColecao<T>().CountDocumentsAsync(where);
         }
 
-        public async Task<fieldType> ObterMaiorValorAsync<T, fieldType>(Expression<Func<T, bool>> where, Expression<Func<T, fieldType>> max)
+        public async Task<RetornoPaginacao<T>> ObterQueryAsync<T>(FilterDefinition<T> filter, bool ignorarPaginacao, int skip = 1, int limit = 10, string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
         {
-            return await ObterColecao<T>().AsQueryable().Where(where).MaxAsync(max);
+            ICollection<T> itens = new List<T>();
+            long totalItens;
+            if (ignorarPaginacao)
+            {
+                itens = await ObterItensPorFilterDefinition(filter, order, asc, excluirId, projections);
+
+                totalItens = itens.Count;
+
+            }
+            else
+            {
+                itens = await ObterItensPorFilterDefinitionAsync(filter,
+                  skip,
+                  limit,
+                  excluirId: excluirId,
+                  order: order,
+                  asc: asc,
+                  projections: projections);
+
+                totalItens = await ObterTotalDocumentosAsync(filter);
+            }
+            return new RetornoPaginacao<T>(itens, totalItens);
         }
+
+    }
+
+    public class RetornoPaginacao<T>
+    {
+        public RetornoPaginacao(IEnumerable<T> data, long total)
+        {
+            Data = data;
+            Total = total;
+        }
+
+        public long Total { get; }
+        public IEnumerable<T> Data { get; }
     }
 }

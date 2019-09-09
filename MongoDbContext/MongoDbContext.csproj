@@ -3,10 +3,13 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>MongoDbClient</PackageId>
-    <Version>1.0.18</Version>
+    <Version>1.0.20</Version>
     <Authors>Adauto</Authors>
     <Company>Adauto Corp</Company>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <LangVersion>7.1</LangVersion>
+    <RepositoryUrl>https://github.com/adautobarros/MongoDbClient.git</RepositoryUrl> 
+    <RepositoryType>git</RepositoryType> 
   </PropertyGroup>
 
   <ItemGroup>
