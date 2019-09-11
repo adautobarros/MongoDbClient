@@ -39,11 +39,6 @@
         {
             tentativas--;
 
-            if (tentativas == -1)
-            {
-                return null;
-            }
-
             try
             {
                 var db = IniciarInstancia(connectionString).GetDatabase(nomeBanco);
@@ -53,13 +48,18 @@
                 return IniciarBancoComRetry(connectionString, nomeBanco, tentativas);
 
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                if (tentativas == -1)
+                {
+                    throw ex;
+                }
+
                 if (tentativas > -1)
                     return IniciarBancoComRetry(connectionString, nomeBanco, tentativas);
 
-                throw;
             }
+            return null;
         }
 
         private MongoClient IniciarInstancia(string connectionString)
@@ -428,13 +428,13 @@
             return await ObterColecao<T>().CountDocumentsAsync(where);
         }
 
-        public async Task<RetornoPaginacao<T>> ObterQueryAsync<T>(FilterDefinition<T> filter, bool ignorarPaginacao, int skip = 1, int limit = 10, string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
+        public async Task<RetornoPaginacao<T>> ObterQueryAsync<T>(FilterDefinition<T> filter, bool noPagination, int skip = 1, int limit = 10, string order = "_id", bool asc = true, bool excludeId = true, params string[] projections)
         {
             ICollection<T> itens = new List<T>();
             long totalItens;
-            if (ignorarPaginacao)
+            if (noPagination)
             {
-                itens = await ObterItensPorFilterDefinition(filter, order, asc, excluirId, projections);
+                itens = await ObterItensPorFilterDefinition(filter, order, asc, excludeId, projections);
 
                 totalItens = itens.Count;
 
@@ -444,7 +444,7 @@
                 itens = await ObterItensPorFilterDefinitionAsync(filter,
                   skip,
                   limit,
-                  excluirId: excluirId,
+                  excluirId: excludeId,
                   order: order,
                   asc: asc,
                   projections: projections);
