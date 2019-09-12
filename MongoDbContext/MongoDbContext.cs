@@ -16,6 +16,8 @@
         private readonly string nomeBanco;
         private readonly string connectionString;
 
+        public string Query { get; set; }
+
         public MongoDbContext(string connectionString, string nomeBanco)
         {
             if (string.IsNullOrWhiteSpace(nomeBanco) || string.IsNullOrWhiteSpace(connectionString))
@@ -67,18 +69,8 @@
             ConventionPackMongo.UseConventionMongo();
             MongoDefaults.MaxConnectionIdleTime = TimeSpan.FromMinutes(1);
             return new MongoClient(connectionString);
-            //var cliente= new MongoClient(new MongoClientSettings
-            //{
-            //    Server = new MongoServerAddress(connectionString),
-
-            //    MaxConnectionIdleTime = TimeSpan.FromMinutes(1),
-            //    ClusterConfigurator = builder =>
-            //    {
-            //        builder.Subscribe<ConnectionFailedEvent>(CmdStartHandlerForFindCommand);
-            //    },
-            //    RetryWrites = true,
-            //});
         }
+
         private void CmdStartHandlerForFindCommand(MongoDB.Driver.Core.Events.ConnectionFailedEvent cmdStart)
         {
             System.Diagnostics.Trace.TraceWarning("Erro ao tentar connectar no mongodb: {0}", cmdStart.Exception);
@@ -126,7 +118,6 @@
             return await ObterColecao<T>().FindOneAndReplaceAsync(filtro, item);
         }
 
-
         public async Task<T> ExcluirAsync<T>(FilterDefinition<T> filtro)
         {
             return await ObterColecao<T>().FindOneAndDeleteAsync<T>(filtro);
@@ -168,8 +159,10 @@
             FilterDefinition<T> filtro = Builders<T>.Filter.Eq("_id", id);
             var result = ObterColecao<T>().Find(filtro);
             var projection = ObterProjection<T>(excluirId, projections);
-            var item = await result.Project<T>(projection).FirstOrDefaultAsync();
-            return item;
+            var item = result.Project<T>(projection);
+
+            Query = item.ToString();
+            return await item.FirstOrDefaultAsync();
         }
 
 
@@ -177,13 +170,17 @@
             params string[] projections)
         {
             var item = Filtrar(where, excluirId, projections);
+
+            Query = item.ToString();
             return await item.FirstOrDefaultAsync();
         }
 
         public async Task<T> ObterAsync<T>(object where, bool excluirId = true, params string[] projections)
         {
-            var filtro = Filtrar<T>(where, 1, 1, excluirId: excluirId, projections: projections);
-            return await filtro.FirstOrDefaultAsync();
+            var item = Filtrar<T>(where, 1, 1, excluirId: excluirId, projections: projections);
+
+            Query = item.ToString();
+            return await item.FirstOrDefaultAsync();
         }
 
         public ICollection<T> ObterItens<T>(Expression<Func<T, bool>> where, bool excluirId = true,
@@ -202,6 +199,8 @@
             var itens = ObterColecao<T>()
                 .Find(filtros)
                 .Project<T>(projection);
+
+            Query = itens.ToString();
             return await itens.ToListAsync();
         }
 
@@ -214,39 +213,47 @@
             var itens = ObterColecao<T>()
                 .Find(filtros)
                 .Project<T>(projection);
+
+            Query = itens.ToString();
             return await itens.ToListAsync();
         }
 
         public async Task<ICollection<T>> ObterItensAsync<T>(object where, int skip = 1, int limit = 10,
             string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
         {
-            var item = Filtrar<T>(where, skip, limit, order, asc, excluirId, projections);
-            return await item.ToListAsync();
+            var itens = Filtrar<T>(where, skip, limit, order, asc, excluirId, projections);
+
+            Query = itens.ToString();
+            return await itens.ToListAsync();
         }
 
         public async Task<ICollection<T>> ObterItensAsync<T>(Expression<Func<T, bool>> where, bool excluirId = true,
             params string[] projections)
         {
-            var item = await Filtrar(where, excluirId, projections).ToListAsync();
-            return item;
+            var itens = Filtrar(where, excluirId, projections);
+
+            Query = itens.ToString();
+            return await itens.ToListAsync();
         }
 
         public async Task<ICollection<T>> ObterItensAsync<T>(FilterDefinition<T> where, int skip = 1, int limit = 10,
             string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
         {
-            var item = await Filtrar(where, excluirId, projections).ToListAsync();
-            return item;
+            var itens = Filtrar(where, excluirId, projections);
+
+            Query = itens.ToString();
+            return await itens.ToListAsync();
         }
 
-        public async Task<ICollection<T>> ObterItensPorFilterDefinition<T>(FilterDefinition<T> where, string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
+        public async Task<ICollection<T>> ObterItensPorFilterDefinitionAsync<T>(FilterDefinition<T> where, string order = "_id", bool asc = true, bool excluirId = true, params string[] projections)
         {
-            var filtros = AddFilter<T>(where);
             var projection = ObterProjection<T>(excluirId, projections);
-
             var itens = ObterColecao<T>()
-                .Find(filtros)
+                .Find(where)
                 .Sort(new BsonDocument(order, asc ? 1 : -1))
                 .Project<T>(projection);
+
+            Query = itens.ToString();
             return await itens.ToListAsync();
         }
 
@@ -321,6 +328,7 @@
                 .Sort(new BsonDocument(order, asc ? 1 : -1))
                 .Project<T>(projection);
 
+            Query = itens.ToString();
             return await itens.ToListAsync();
         }
 
@@ -434,8 +442,7 @@
             long totalItens;
             if (noPagination)
             {
-                itens = await ObterItensPorFilterDefinition(filter, order, asc, excludeId, projections);
-
+                itens = await ObterItensPorFilterDefinitionAsync(filter, order, asc, excludeId, projections);
                 totalItens = itens.Count;
 
             }
