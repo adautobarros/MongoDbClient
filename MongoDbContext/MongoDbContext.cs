@@ -1,24 +1,20 @@
 ﻿namespace MongoDbContext
 {
-    using MongoDB.Bson;
-    using MongoDB.Driver;
-    using MongoDB.Driver.Linq;
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
     using System.Threading.Tasks;
+    using MongoDB.Bson;
+    using MongoDB.Driver;
 
     public class MongoDbContext
     {
         private readonly IMongoDatabase _db;
-        private readonly string nomeBanco;
-        private readonly string connectionString;
-
         public string Query { get; set; }
 
-        public MongoDbContext(string connectionString, string nomeBanco)
+        public MongoDbContext(string connectionString, string nomeBanco, bool camelCaseElementNameConvention = true, bool ignoreIfNullConvention = false, bool idGeneratorConvention = false)
         {
             if (string.IsNullOrWhiteSpace(nomeBanco) || string.IsNullOrWhiteSpace(connectionString))
             {
@@ -26,54 +22,47 @@
             }
 
 
-            _db = IniciarBancoComRetry(connectionString, nomeBanco);
+            _db = IniciarBancoComRetry(connectionString, nomeBanco, camelCaseElementNameConvention, ignoreIfNullConvention, idGeneratorConvention);
 
             if (_db == null)
             {
                 throw new Exception("Não foi possível conectar no mongodb");
             }
 
-            this.nomeBanco = nomeBanco;
-            this.connectionString = connectionString;
         }
 
-        private IMongoDatabase IniciarBancoComRetry(string connectionString, string nomeBanco, int tentativas = 2)
+        private IMongoDatabase IniciarBancoComRetry(string connectionString, string nomeBanco, bool camelCaseElementNameConvention, bool ignoreIfNullConvention, bool idGeneratorConvention, int tentativas = 2)
         {
             tentativas--;
 
             try
             {
-                var db = IniciarInstancia(connectionString).GetDatabase(nomeBanco);
+                var db = IniciarInstancia(connectionString, camelCaseElementNameConvention, ignoreIfNullConvention, idGeneratorConvention).GetDatabase(nomeBanco);
                 if (db.Ping() && db.Client.Cluster.Description.State == MongoDB.Driver.Core.Clusters.ClusterState.Connected)
                     return db;
 
-                return IniciarBancoComRetry(connectionString, nomeBanco, tentativas);
+                return IniciarBancoComRetry(connectionString, nomeBanco, camelCaseElementNameConvention, ignoreIfNullConvention, idGeneratorConvention, tentativas);
 
             }
-            catch (Exception ex)
+            catch
             {
                 if (tentativas == -1)
                 {
-                    throw ex;
+                    throw;
                 }
 
                 if (tentativas > -1)
-                    return IniciarBancoComRetry(connectionString, nomeBanco, tentativas);
+                    return IniciarBancoComRetry(connectionString, nomeBanco, camelCaseElementNameConvention, ignoreIfNullConvention, idGeneratorConvention, tentativas);
 
             }
             return null;
         }
 
-        private MongoClient IniciarInstancia(string connectionString)
+        private MongoClient IniciarInstancia(string connectionString, bool camelCaseElementNameConvention, bool ignoreIfNullConvention, bool idGeneratorConvention)
         {
-            ConventionPackMongo.UseConventionMongo();
+            ConventionPackMongo.UseConventionMongo(camelCaseElementNameConvention, ignoreIfNullConvention, idGeneratorConvention);
             MongoDefaults.MaxConnectionIdleTime = TimeSpan.FromMinutes(1);
             return new MongoClient(connectionString);
-        }
-
-        private void CmdStartHandlerForFindCommand(MongoDB.Driver.Core.Events.ConnectionFailedEvent cmdStart)
-        {
-            System.Diagnostics.Trace.TraceWarning("Erro ao tentar connectar no mongodb: {0}", cmdStart.Exception);
         }
 
         public bool Connectado()
@@ -307,7 +296,7 @@
                 }
                 else
                 {
-                    filter = filter & builder.Eq(item.Key, item.Value);
+                    filter &= builder.Eq(item.Key, item.Value);
                 }
 
                 i++;
@@ -365,11 +354,11 @@
                 {
                     if (filterCount == 0)
                     {
-                        filter = builder.Eq<object>(ToLowerInitLeter(name), value);
+                        filter = builder.Eq(ToLowerInitLeter(name), value);
                     }
                     else
                     {
-                        filter = filter & builder.Eq<object>(ToLowerInitLeter(name), value);
+                        filter &= builder.Eq(ToLowerInitLeter(name), value);
                     }
 
                     filterCount++;
@@ -438,7 +427,7 @@
 
         public async Task<RetornoPaginacao<T>> ObterQueryAsync<T>(FilterDefinition<T> filter, bool noPagination, int skip = 1, int limit = 10, string order = "_id", bool asc = true, bool excludeId = true, params string[] projections)
         {
-            ICollection<T> itens = new List<T>();
+            ICollection<T> itens;
             long totalItens;
             if (noPagination)
             {

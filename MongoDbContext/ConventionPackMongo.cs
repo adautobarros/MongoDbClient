@@ -19,10 +19,16 @@
             }
         }
 
-        public static void UseConventionMongo()
+        public static void UseConventionMongo(bool camelCaseElementNameConvention, bool ignoreIfNullConvention, bool idGeneratorConvention)
         {
-            var conventionPack = new ConventionPack { new CamelCaseElementNameConvention() };
-            ConventionRegistry.Register("Pack", conventionPack, x => true);
+            if (camelCaseElementNameConvention)
+                ConventionRegistry.Register("camelCase", new ConventionPack { new CamelCaseElementNameConvention() }, x => true);
+            if (ignoreIfNullConvention)
+                ConventionRegistry.Register("Ignore null values", new ConventionPack { new IgnoreIfNullConvention(true) }, t => true);
+
+
+            if (idGeneratorConvention)
+                ConventionRegistry.Register("camelCase", new ConventionPack { new IdGeneratorConvention() }, x => true);
         }
     }
 }
